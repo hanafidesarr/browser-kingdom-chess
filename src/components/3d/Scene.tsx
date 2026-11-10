@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import React, { useEffect, useState } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
@@ -8,6 +8,8 @@ import { BoardPiece, LegalMoveInfo, ActiveMoveAnimation } from '../../types/ches
 import { ChessPiece } from './ChessPiece';
 import { ChessBoard } from './ChessBoard';
 import { Environment } from './Environment';
+import { ImpactEffect } from './ImpactEffect';
+import { squareToCoords } from '../../utils/chessCoords';
 
 interface SceneProps {
   piecesList: BoardPiece[];
@@ -16,6 +18,7 @@ interface SceneProps {
   lastMove: { from: Square; to: Square } | null;
   checkedKingSquare: Square | null;
   activeAnimation: ActiveMoveAnimation | null;
+  winner?: 'w' | 'b' | null;
   onSquareClick: (sq: Square) => void;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
 }
@@ -26,24 +29,58 @@ function ResponsiveCameraController() {
   const { camera, size } = useThree();
 
   useEffect(() => {
+    if (!camera || !size.width || !size.height) return;
     const aspect = size.width / size.height;
-    // Target board radius is ~4.75 units. With margin, target half-width is 5.6 units.
-    const targetHalfWidth = 5.6;
-    const distance = 18.2;
 
-    // Fit horizontally: tan(vFov / 2) >= targetHalfWidth / (distance * aspect)
-    const effectiveAspect = Math.min(aspect, 0.95);
-    const requiredTanVFov = targetHalfWidth / (distance * effectiveAspect);
-    const calculatedVFov = (Math.atan(requiredTanVFov) * 2 * 180) / Math.PI;
+    // Target distance to center of chessboard:
+    const distance = 18.0;
+
+    // Target half extents in world units (board + margins for edge pieces):
+    const targetHalfWidth = 5.25;
+    const targetHalfHeight = 5.35;
+
+    // Calculate required tan(vFov / 2) for both horizontal and vertical bounds
+    const requiredTanH = targetHalfWidth / (distance * aspect);
+    const requiredTanV = targetHalfHeight / distance;
+    const requiredTan = Math.max(requiredTanH, requiredTanV);
+
+    const calculatedVFov = (Math.atan(requiredTan) * 2 * 180) / Math.PI;
 
     const perspectiveCam = camera as THREE.PerspectiveCamera;
     if (perspectiveCam && perspectiveCam.isPerspectiveCamera) {
-      perspectiveCam.fov = Math.max(46, Math.min(76, calculatedVFov));
+      perspectiveCam.fov = Math.max(48, Math.min(78, calculatedVFov));
       perspectiveCam.updateProjectionMatrix();
     }
-  }, [size, camera]);
+  }, [size.width, size.height, camera]);
 
   return null;
+}
+
+// Dynamic combat impact effect rendered on the target square during capture strike
+function ActiveCaptureImpact({ activeAnimation }: { activeAnimation: ActiveMoveAnimation | null }) {
+  const [impactData, setImpactData] = useState<{ pos: [number, number, number]; progress: number } | null>(null);
+
+  useFrame(() => {
+    if (!activeAnimation || !activeAnimation.isCapture) {
+      if (impactData) setImpactData(null);
+      return;
+    }
+
+    const elapsed = (performance.now() - activeAnimation.startTime) / activeAnimation.duration;
+    const progress = Math.min(1, Math.max(0, elapsed));
+
+    // Strike window: 0.56 to 0.86 of capture sequence
+    if (progress >= 0.56 && progress <= 0.86) {
+      const strikeProgress = (progress - 0.56) / 0.30;
+      const [toX, toY, toZ] = squareToCoords(activeAnimation.to);
+      setImpactData({ pos: [toX, toY, toZ], progress: strikeProgress });
+    } else {
+      if (impactData) setImpactData(null);
+    }
+  });
+
+  if (!impactData) return null;
+  return <ImpactEffect position={impactData.pos} progress={impactData.progress} />;
 }
 
 export const Scene: React.FC<SceneProps> = ({
@@ -53,6 +90,7 @@ export const Scene: React.FC<SceneProps> = ({
   lastMove,
   checkedKingSquare,
   activeAnimation,
+  winner,
   onSquareClick,
   controlsRef
 }) => {
@@ -132,6 +170,9 @@ export const Scene: React.FC<SceneProps> = ({
           onSquareClick={onSquareClick}
         />
 
+        {/* Stylized Combat Impact Burst on Capture */}
+        <ActiveCaptureImpact activeAnimation={activeAnimation} />
+
         {/* Smooth 3D Chibi Pieces */}
         {piecesList.map((piece) => (
           <ChessPiece
@@ -140,6 +181,7 @@ export const Scene: React.FC<SceneProps> = ({
             activeAnimation={activeAnimation}
             isSelected={selectedSquare === piece.square}
             isInCheck={checkedKingSquare === piece.square}
+            winner={winner}
             onClick={() => onSquareClick(piece.square)}
           />
         ))}

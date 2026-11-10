@@ -3,6 +3,14 @@ import { PieceSymbol, Color, Square } from 'chess.js';
 export type PieceType = PieceSymbol; // 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 export type PieceColor = Color; // 'w' | 'b'
 
+export type CharacterAnimState = 'idle' | 'running' | 'attacking' | 'defeated' | 'victory';
+
+export interface CharacterAnimData {
+  state: CharacterAnimState;
+  progress: number;
+  runCycle: number;
+}
+
 export interface BoardPiece {
   id: string; // unique persistent identifier for 3D rendering
   type: PieceType;

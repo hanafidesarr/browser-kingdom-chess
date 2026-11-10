@@ -35,7 +35,7 @@ export const App: React.FC = () => {
   } = useChessGame();
 
   return (
-    <main className="w-screen h-screen bg-[#04060a] flex items-center justify-center overflow-hidden">
+    <main className="w-full h-full h-[100dvh] min-h-[100dvh] max-h-[100dvh] bg-[#04060a] flex items-center justify-center overflow-hidden">
       <PortraitLayout
         board={board}
         piecesList={piecesList}

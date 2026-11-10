@@ -249,14 +249,14 @@ export function useChessGame(): UseChessGameReturn {
           pieceMapRef.current.set(castlingRookInfo.to, castlingRookInfo.pieceId);
         }
 
-        // Determine choreographed duration
-        let duration = 650; // normal
-        if (pieceOnFrom.type === 'n') {
-          duration = 820; // knight jump arc
-        } else if (moveResult.captured) {
-          duration = 880; // attack + defeat sequence
+        // Determine choreographed duration per specs (Normal: 500-750ms, Knight: 650-900ms)
+        let duration = 620;
+        if (moveResult.captured) {
+          duration = 880; // combat attack + stylized impact + defeat sequence
+        } else if (pieceOnFrom.type === 'n') {
+          duration = 780; // knight special jumping arc
         } else if (isCastling) {
-          duration = 750; // royal castling
+          duration = 700; // royal castling
         }
 
         defeatedPieceRef.current = capturedPieceData || null;
@@ -347,7 +347,7 @@ export function useChessGame(): UseChessGameReturn {
   // Player square selection
   const selectSquare = useCallback((sq: Square) => {
     // If not started, promotion pending, AI thinking, or movement animation active, block inputs!
-    if (!isGameStarted || pendingPromotion || isAiThinking || isAnimating) return;
+    if (!isGameStarted || pendingPromotion || isAiThinking || isAnimating || activeAnimation) return;
 
     if (chess.turn() !== 'w') return;
 

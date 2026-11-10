@@ -72,7 +72,9 @@ class StockfishEngine {
     }
 
     try {
-      this.worker = new Worker('/stockfish.js');
+      const base = import.meta.env.BASE_URL || '/';
+      const workerUrl = `${base.endsWith('/') ? base : base + '/'}stockfish.js`;
+      this.worker = new Worker(workerUrl);
       this.worker.onmessage = (e) => {
         const line = typeof e.data === 'string' ? e.data : '';
         this.handleMessage(line);

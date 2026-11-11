@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Square } from 'chess.js';
 import { BoardPiece, ActiveMoveAnimation, CharacterAnimState } from '../../types/chess';
 import { squareToCoords } from '../../utils/chessCoords';
 import { PawnCharacter } from './PawnCharacter';
@@ -17,7 +18,7 @@ interface ChessPieceProps {
   isSelected: boolean;
   isInCheck: boolean;
   winner?: 'w' | 'b' | null;
-  onClick: () => void;
+  onSquareClick: (sq: Square) => void;
 }
 
 // Easing function for smooth acceleration and deceleration
@@ -33,13 +34,13 @@ function lerpAngle(start: number, end: number, t: number): number {
   return start + diff * t;
 }
 
-export const ChessPiece: React.FC<ChessPieceProps> = ({
+const ChessPieceComponent: React.FC<ChessPieceProps> = ({
   piece,
   activeAnimation,
   isSelected,
   isInCheck,
   winner,
-  onClick
+  onSquareClick
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const soundPlayedRef = useRef<boolean>(false);
@@ -48,6 +49,10 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
   const [animState, setAnimState] = useState<CharacterAnimState>('idle');
   const [animProgress, setAnimProgress] = useState<number>(0);
   const [runCycle, setRunCycle] = useState<number>(0);
+
+  // References to avoid unnecessary React re-renders during 60FPS useFrame loop
+  const animStateRef = useRef<CharacterAnimState>('idle');
+  const lastAnimUpdateRef = useRef<number>(0);
 
   // Target base coordinates on the board
   const [baseX, baseY, baseZ] = squareToCoords(piece.square);
@@ -138,27 +143,42 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
       }
 
       // Determine animation state for character meshes
+      let targetAnimState: CharacterAnimState = 'idle';
+      let targetAnimProgress = 0;
+
       if (activeAnimation.isCapture) {
         if (progress < 0.48) {
-          setAnimState('running');
-          setRunCycle(cycle);
-          setAnimProgress(progress / 0.48);
+          targetAnimState = 'running';
+          targetAnimProgress = progress / 0.48;
         } else if (progress < 0.85) {
-          setAnimState('attacking');
-          setAnimProgress((progress - 0.48) / 0.37);
+          targetAnimState = 'attacking';
+          targetAnimProgress = (progress - 0.48) / 0.37;
         } else {
-          setAnimState('idle');
-          setAnimProgress(0);
+          targetAnimState = 'idle';
+          targetAnimProgress = 0;
         }
       } else {
         if (progress < 0.88) {
-          setAnimState('running');
-          setRunCycle(cycle);
-          setAnimProgress(progress);
+          targetAnimState = 'running';
+          targetAnimProgress = progress;
         } else {
-          setAnimState('idle');
-          setAnimProgress(0);
+          targetAnimState = 'idle';
+          targetAnimProgress = 0;
         }
+      }
+
+      // Update state when animState changes OR throttle limb updates to ~30 FPS
+      const stateChanged = animStateRef.current !== targetAnimState;
+      const shouldUpdateLimb = now - lastAnimUpdateRef.current >= 33;
+
+      if (stateChanged || shouldUpdateLimb) {
+        if (stateChanged) {
+          animStateRef.current = targetAnimState;
+          setAnimState(targetAnimState);
+        }
+        setRunCycle(cycle);
+        setAnimProgress(targetAnimProgress);
+        lastAnimUpdateRef.current = now;
       }
 
       // Trigger capture strike sound at impact time (~0.58)
@@ -172,7 +192,11 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
         groupRef.current.rotation.x = 0;
         groupRef.current.rotation.z = 0;
         groupRef.current.rotation.y = defaultFacingRotY;
-        setAnimState('idle');
+        if (animStateRef.current !== 'idle') {
+          animStateRef.current = 'idle';
+          setAnimState('idle');
+          setAnimProgress(0);
+        }
       }
       return;
     }
@@ -193,9 +217,15 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
       groupRef.current.position.y = fromY + stepHop;
       groupRef.current.rotation.y = defaultFacingRotY;
 
-      setAnimState('running');
-      setRunCycle(cycle);
-      setAnimProgress(progress);
+      if (animStateRef.current !== 'running') {
+        animStateRef.current = 'running';
+        setAnimState('running');
+      }
+      if (now - lastAnimUpdateRef.current >= 33) {
+        setRunCycle(cycle);
+        setAnimProgress(progress);
+        lastAnimUpdateRef.current = now;
+      }
       return;
     }
 
@@ -209,7 +239,10 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
         if (progress < 0.58) {
           groupRef.current.position.set(baseX, baseY, baseZ);
           groupRef.current.scale.set(1, 1, 1);
-          setAnimState('idle');
+          if (animStateRef.current !== 'idle') {
+            animStateRef.current = 'idle';
+            setAnimState('idle');
+          }
         } else {
           // Play defeat animation: knockback tilt, spin, and shrink down to 0
           const defeatProgress = (progress - 0.58) / 0.42;
@@ -221,8 +254,14 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
           groupRef.current.rotation.y = defaultFacingRotY + defeatProgress * 1.3;
           groupRef.current.position.y = baseY + Math.sin(defeatProgress * Math.PI) * 0.16;
 
-          setAnimState('defeated');
-          setAnimProgress(defeatProgress);
+          if (animStateRef.current !== 'defeated') {
+            animStateRef.current = 'defeated';
+            setAnimState('defeated');
+          }
+          if (now - lastAnimUpdateRef.current >= 33) {
+            setAnimProgress(defeatProgress);
+            lastAnimUpdateRef.current = now;
+          }
         }
       }
       return;
@@ -233,6 +272,12 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
     groupRef.current.scale.set(1, 1, 1);
     groupRef.current.rotation.x = 0;
     groupRef.current.rotation.z = 0;
+
+    if (animStateRef.current !== 'idle') {
+      animStateRef.current = 'idle';
+      setAnimState('idle');
+      setAnimProgress(0);
+    }
 
     // Smoothly align to square coordinates
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, baseX, 0.2);
@@ -291,7 +336,7 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
       position={[baseX, baseY, baseZ]}
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        onSquareClick(piece.square);
       }}
     >
       {/* Selected Magic Glow Ring */}
@@ -320,3 +365,5 @@ export const ChessPiece: React.FC<ChessPieceProps> = ({
     </group>
   );
 };
+
+export const ChessPiece = React.memo(ChessPieceComponent);

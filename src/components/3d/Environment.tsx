@@ -3,10 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { matRegistry } from './Materials';
 
-export const Environment: React.FC = () => {
+const EnvironmentComponent: React.FC = () => {
   const torchLight1 = useRef<THREE.PointLight>(null);
   const torchLight2 = useRef<THREE.PointLight>(null);
   const torchLight3 = useRef<THREE.PointLight>(null);
+  const lastTorchUpdateRef = useRef<number>(0);
 
   // Materials
   const terraceMat = matRegistry.get('#4b5563', 0.8, 0.05);
@@ -23,17 +24,20 @@ export const Environment: React.FC = () => {
   const waterMat = matRegistry.get('#38bdf8', 0.2, 0.4);
   const flameMat = matRegistry.get('#f97316', 0.1, 0.0);
 
-  // Animate torch flickers
+  // Animate torch flickers smoothly with throttled uniform updates (~20 FPS)
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
+    if (t - lastTorchUpdateRef.current < 0.05) return;
+    lastTorchUpdateRef.current = t;
+
     if (torchLight1.current) {
-      torchLight1.current.intensity = 1.4 + Math.sin(t * 12) * 0.25 + Math.cos(t * 17) * 0.15;
+      torchLight1.current.intensity = 1.35 + Math.sin(t * 8) * 0.2;
     }
     if (torchLight2.current) {
-      torchLight2.current.intensity = 1.4 + Math.cos(t * 14) * 0.25 + Math.sin(t * 19) * 0.15;
+      torchLight2.current.intensity = 1.35 + Math.cos(t * 9) * 0.2;
     }
     if (torchLight3.current) {
-      torchLight3.current.intensity = 1.2 + Math.sin(t * 15) * 0.2;
+      torchLight3.current.intensity = 1.1 + Math.sin(t * 10) * 0.15;
     }
   });
 
@@ -180,7 +184,7 @@ export const Environment: React.FC = () => {
           <mesh position={[0, 0.22, 0.1]} material={flameMat}>
             <coneGeometry args={[0.09, 0.2, 5]} />
           </mesh>
-          <pointLight ref={torchLight1} position={[0, 0.3, 0.2]} color="#ff8833" intensity={1.5} distance={5} />
+          <pointLight ref={torchLight1} position={[0, 0.3, 0.2]} color="#ff8833" intensity={1.35} distance={3.5} decay={2} />
         </group>
 
         <group position={[2.2, 2.4, 0.65]}>
@@ -190,7 +194,7 @@ export const Environment: React.FC = () => {
           <mesh position={[0, 0.22, 0.1]} material={flameMat}>
             <coneGeometry args={[0.09, 0.2, 5]} />
           </mesh>
-          <pointLight ref={torchLight2} position={[0, 0.3, 0.2]} color="#ff8833" intensity={1.5} distance={5} />
+          <pointLight ref={torchLight2} position={[0, 0.3, 0.2]} color="#ff8833" intensity={1.35} distance={3.5} decay={2} />
         </group>
       </group>
 
@@ -251,8 +255,10 @@ export const Environment: React.FC = () => {
         <mesh position={[0, 0.48, 0]} material={flameMat}>
           <coneGeometry args={[0.08, 0.18, 5]} />
         </mesh>
-        <pointLight ref={torchLight3} position={[0, 0.6, 0]} color="#f97316" intensity={1.2} distance={3} />
+        <pointLight ref={torchLight3} position={[0, 0.6, 0]} color="#f97316" intensity={1.1} distance={2.5} decay={2} />
       </group>
     </group>
   );
 };
+
+export const Environment = React.memo(EnvironmentComponent);

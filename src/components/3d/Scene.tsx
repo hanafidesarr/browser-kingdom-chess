@@ -83,6 +83,8 @@ function ActiveCaptureImpact({ activeAnimation }: { activeAnimation: ActiveMoveA
   return <ImpactEffect position={impactData.pos} progress={impactData.progress} />;
 }
 
+const DPR = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 1.5) : 1;
+
 export const Scene: React.FC<SceneProps> = ({
   piecesList,
   selectedSquare,
@@ -98,6 +100,7 @@ export const Scene: React.FC<SceneProps> = ({
     <div className="w-full h-full relative select-none">
       <Canvas
         shadows
+        dpr={DPR}
         camera={{
           position: [0, 14.5, 11.0],
           fov: 54,
@@ -106,6 +109,9 @@ export const Scene: React.FC<SceneProps> = ({
         }}
         gl={{
           antialias: true,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.15
         }}
@@ -122,15 +128,16 @@ export const Scene: React.FC<SceneProps> = ({
           intensity={1.9}
           color="#fffbeb"
           castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
           shadow-camera-near={0.5}
           shadow-camera-far={40}
           shadow-camera-left={-7.5}
           shadow-camera-right={7.5}
           shadow-camera-top={7.5}
           shadow-camera-bottom={-7.5}
-          shadow-bias={-0.0004}
+          shadow-bias={-0.0002}
+          shadow-normalBias={0.02}
         />
 
         {/* Strong Rim/Backlight to separate Chibi silhouettes from board */}
@@ -173,7 +180,7 @@ export const Scene: React.FC<SceneProps> = ({
         {/* Stylized Combat Impact Burst on Capture */}
         <ActiveCaptureImpact activeAnimation={activeAnimation} />
 
-        {/* Smooth 3D Chibi Pieces */}
+        {/* Smooth 3D Chibi Pieces (Memoized with stable onSquareClick reference) */}
         {piecesList.map((piece) => (
           <ChessPiece
             key={piece.id}
@@ -182,7 +189,7 @@ export const Scene: React.FC<SceneProps> = ({
             isSelected={selectedSquare === piece.square}
             isInCheck={checkedKingSquare === piece.square}
             winner={winner}
-            onClick={() => onSquareClick(piece.square)}
+            onSquareClick={onSquareClick}
           />
         ))}
       </Canvas>

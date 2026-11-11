@@ -13,7 +13,7 @@ interface ChessBoardProps {
   onSquareClick: (sq: Square) => void;
 }
 
-export const ChessBoard: React.FC<ChessBoardProps> = ({
+const ChessBoardComponent: React.FC<ChessBoardProps> = ({
   selectedSquare,
   legalMoves,
   lastMove,
@@ -114,6 +114,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   transparent
                   opacity={overlayOpacity}
                   side={THREE.DoubleSide}
+                  depthWrite={false}
                 />
               </mesh>
             )}
@@ -123,11 +124,11 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               <group position={[0, 0.045, 0]}>
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
                   <circleGeometry args={[0.2, 16]} />
-                  <meshBasicMaterial color="#10b981" transparent opacity={0.8} side={THREE.DoubleSide} />
+                  <meshBasicMaterial color="#10b981" transparent opacity={0.8} side={THREE.DoubleSide} depthWrite={false} />
                 </mesh>
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
                   <ringGeometry args={[0.22, 0.26, 20]} />
-                  <meshBasicMaterial color="#34d399" transparent opacity={0.95} side={THREE.DoubleSide} />
+                  <meshBasicMaterial color="#34d399" transparent opacity={0.95} side={THREE.DoubleSide} depthWrite={false} />
                 </mesh>
               </group>
             )}
@@ -137,13 +138,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               <group position={[0, 0.045, 0]}>
                 <mesh rotation={[-Math.PI / 2, 0, 0]}>
                   <ringGeometry args={[0.34, 0.44, 24]} />
-                  <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+                  <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} depthWrite={false} />
                 </mesh>
                 {/* 4 corner attack brackets */}
                 {[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].map((rot, idx) => (
                   <mesh key={idx} rotation={[-Math.PI / 2, 0, rot]} position={[0, 0.01, 0]}>
                     <ringGeometry args={[0.44, 0.48, 8, 1, 0, Math.PI / 4]} />
-                    <meshBasicMaterial color="#fca5a5" side={THREE.DoubleSide} />
+                    <meshBasicMaterial color="#fca5a5" side={THREE.DoubleSide} depthWrite={false} />
                   </mesh>
                 ))}
               </group>
@@ -175,3 +176,5 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     </group>
   );
 };
+
+export const ChessBoard = React.memo(ChessBoardComponent);
